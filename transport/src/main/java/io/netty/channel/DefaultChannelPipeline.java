@@ -81,6 +81,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
      * Thus full iterations to do insertions is assumed to be a good compromised to saving memory and tail management
      * complexity.
      */
+    //当channel注册成功后，后序会迭代pendingHandlerCallbackHead对象依次执行所有任务的run方法
     private PendingHandlerCallback pendingHandlerCallbackHead;
 
     /**
@@ -199,27 +200,34 @@ public class DefaultChannelPipeline implements ChannelPipeline {
     public final ChannelPipeline addLast(EventExecutorGroup group, String name, ChannelHandler handler) {
         final AbstractChannelHandlerContext newCtx;
         synchronized (this) {
+            //检查该 handler 是否符合标准，如果没有 Sharable 注解且已经被使用过了，就抛出异常
             checkMultiplicity(handler);
 
+            //ChannelHandlerContext 对象是 ChannelHandler 和 ChannelPipeline 之间的关联
             newCtx = newContext(group, filterName(name, handler), handler);
 
+            //将Context 添加到链表中。也就是追加到 tail 节点的前面
             addLast0(newCtx);
 
             // If the registered is false it means that the channel was not registered on an eventLoop yet.
             // In this case we add the context to the pipeline and add a task that will call
             // ChannelHandler.handlerAdded(...) once the channel is registered.
+            //如果channel还没有注册到eventLoop上面
             if (!registered) {
                 newCtx.setAddPending();
+                //封装一个任务，等待channel注册后执行，任务主要是执行callHandlerAdded0方法
                 callHandlerCallbackLater(newCtx, true);
                 return this;
             }
 
             EventExecutor executor = newCtx.executor();
             if (!executor.inEventLoop()) {
+                //添加任务到线程池中，任务主要是执行callHandlerAdded0方法
                 callHandlerAddedInEventLoop(newCtx, executor);
                 return this;
             }
         }
+        //执行handler的handerAdd0方法，而handlerAdd方法会调用initChannel方法
         callHandlerAdded0(newCtx);
         return this;
     }
@@ -1111,6 +1119,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
             assert !registered;
 
             // This Channel itself was registered.
+            //设置该channel已经注册
             registered = true;
 
             pendingHandlerCallbackHead = this.pendingHandlerCallbackHead;

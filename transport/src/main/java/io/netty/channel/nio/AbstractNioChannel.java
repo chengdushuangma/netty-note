@@ -374,11 +374,18 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         return loop instanceof NioEventLoop;
     }
 
+    /**
+     * 一个死循环中向 JDK 中注册感兴趣的事件。
+     *  如果成功，则直接结束;
+     *  如果失败，则 调用 EventLoop 内部的 JDK 的 select 的 selectNow 方
+     * @throws Exception
+     */
     @Override
     protected void doRegister() throws Exception {
         boolean selected = false;
         for (;;) {
             try {
+
                 selectionKey = javaChannel().register(eventLoop().unwrappedSelector(), 0, this);
                 return;
             } catch (CancelledKeyException e) {

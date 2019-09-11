@@ -469,6 +469,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 register0(promise);
             } else {
                 try {
+                    // 开始真正的异步，boss 线程开始启动
                     eventLoop.execute(new Runnable() {
                         @Override
                         public void run() {
@@ -494,15 +495,20 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                     return;
                 }
                 boolean firstRegistration = neverRegistered;
+                //在selector注册channel
                 doRegister();
                 neverRegistered = false;
                 registered = true;
 
                 // Ensure we call handlerAdded(...) before we actually notify the promise. This is needed as the
                 // user may already fire events through the pipeline in the ChannelFutureListener.
+                //调用pendingHandlerCallbackHead保存任务的execute方法
                 pipeline.invokeHandlerAddedIfNeeded();
 
+                //safeSetSuccess(promise) 方法就是通知 promise 已经成功了，你可以执行监听器的方法了，而这里的监听器则是dobind方法中设置的
                 safeSetSuccess(promise);
+
+                //handler链中每个handler执行channelRegistered方法
                 pipeline.fireChannelRegistered();
                 // Only fire a channelActive if the channel has never been registered. This prevents firing
                 // multiple channel actives if the channel is deregistered and re-registered.
